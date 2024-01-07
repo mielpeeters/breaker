@@ -1,0 +1,15 @@
+[package]
+name = "breaker"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+cc = "*"
+
+[dependencies]
+tree-sitter-breaker = { version = "0.1.1", path = "../tree-sitter-breaker" }
+tree-sitter = "0.20"
+clap = { version = "4.4", features = ["derive"] }
+cpal = "0.15.2"
