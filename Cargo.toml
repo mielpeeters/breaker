@@ -2,6 +2,8 @@
 name = "breaker"
 version = "0.1.0"
 edition = "2021"
+description = "a new live coding language"
+authors = ["Miel Peeters"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
