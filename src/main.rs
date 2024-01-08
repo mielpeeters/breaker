@@ -1,4 +1,4 @@
-use breaker::chromatic::Chord;
+use breaker::{chromatic::Chord, grid::Grid, util::FromNode};
 use clap::Parser as ClapParser;
 use tree_sitter::Parser;
 
@@ -47,6 +47,32 @@ fn main() {
         return;
     };
     let chord = Chord::from_node(&chord, &source_code).unwrap();
-
     println!("chord: {}", chord);
+
+    let root = tree.root_node();
+
+    println!("root: {}", root.to_sexp());
+
+    let mut walk = root.walk();
+
+    let grid = loop {
+        // go to the next sibling, else go one level deeper
+        if !walk.goto_first_child() {
+            if !walk.goto_next_sibling() {
+                break None;
+            }
+        }
+
+        if walk.node().kind() == "grid" {
+            break Some(walk.node());
+        }
+    };
+
+    let Some(grid) = grid else {
+        println!("No grid found");
+        return;
+    };
+    let grid = Grid::from_node(&grid, &source_code).unwrap();
+
+    println!("grid: {}", grid);
 }

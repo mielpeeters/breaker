@@ -1,10 +1,19 @@
+/*!
+* This module defines notes and chords, and functions for parsing them.
+*/
+
 use std::fmt::Display;
 
+use crate::util::FromNode;
+
+/// A chord consists of a root note, a mode, an optional augmentation, and an optional bass note.
 pub struct Chord(Note, Mode, Option<Aug>, Option<Note>);
 
+/// A note consists of a white note, an accidental, and an octave.
 #[derive(Debug)]
 pub struct Note(WhiteNote, Acc, Octave);
 
+/// A white note, like found on a piano.
 #[derive(Debug)]
 pub enum WhiteNote {
     A,
@@ -16,18 +25,20 @@ pub enum WhiteNote {
     G,
 }
 
+/// Octaves one through seven (as for an 88 key piano)
 #[derive(Default, Debug, PartialEq)]
 pub enum Octave {
-    One,
-    Two,
-    Three,
+    One = 1,
+    Two = 2,
+    Three = 3,
     #[default]
-    Four,
-    Five,
-    Six,
-    Seven,
+    Four = 4,
+    Five = 5,
+    Six = 6,
+    Seven = 7,
 }
 
+/// The accent for a note, either natural, flat, or sharp.
 #[derive(Default, Debug)]
 pub enum Acc {
     #[default]
@@ -36,6 +47,7 @@ pub enum Acc {
     Sharp,
 }
 
+/// Possible modes for chords (of course, there are a lot more)
 #[derive(Default)]
 pub enum Mode {
     #[default]
@@ -47,6 +59,7 @@ pub enum Mode {
     Sus2,
 }
 
+/// Possible augmentations for chords (of course, there are a lot more)
 #[derive(Debug)]
 pub enum Aug {
     Seven,
@@ -57,24 +70,35 @@ pub enum Aug {
     Five,
 }
 
-impl Note {
-    pub fn from_node(node: &tree_sitter::Node, source: &str) -> Option<Self> {
+impl FromNode for Note {
+    /// Parse a note from a tree-sitter node, with given source string (which generated the
+    /// treesitter node).
+    fn from_node(node: &tree_sitter::Node, source: &str) -> Option<Self> {
         let bass = node.child_by_field_name("bass")?;
-        let bass = bass.utf8_text(&source.as_bytes()).unwrap();
+        let bass = bass.utf8_text(source.as_bytes()).unwrap();
+        let bass = bass.try_into().ok()?;
 
         let acc = node.child_by_field_name("acc");
         let acc = match acc {
-            Some(acc) => acc.utf8_text(&source.as_bytes()).unwrap().into(),
+            Some(acc) => acc
+                .utf8_text(source.as_bytes())
+                .unwrap()
+                .try_into()
+                .unwrap_or_default(),
             None => Acc::default(),
         };
 
         let octave = node.child_by_field_name("oct");
         let octave = match octave {
-            Some(octave) => octave.utf8_text(&source.as_bytes()).unwrap().into(),
+            Some(octave) => octave
+                .utf8_text(source.as_bytes())
+                .unwrap()
+                .try_into()
+                .unwrap_or_default(),
             None => Octave::default(),
         };
 
-        Some(Self(bass.into(), acc, octave))
+        Some(Self(bass, acc, octave))
     }
 }
 
@@ -87,24 +111,25 @@ impl Display for Note {
     }
 }
 
-impl Chord {
-    pub fn from_node(node: &tree_sitter::Node, source: &str) -> Option<Self> {
-        let note = node.child_by_field_name("note")?;
+impl FromNode for Chord {
+    fn from_node(node: &tree_sitter::Node, source: &str) -> Option<Self> {
+        let root = node.child_by_field_name("root")?;
 
-        let note = Note::from_node(&note, &source)?;
+        let root = Note::from_node(&root, &source)?;
 
         let mode = node.child_by_field_name("mode");
         let mode = match mode {
-            Some(mode) => mode.utf8_text(&source.as_bytes()).unwrap().into(),
+            Some(mode) => mode
+                .utf8_text(source.as_bytes())
+                .unwrap()
+                .try_into()
+                .unwrap_or_default(),
             None => Mode::default(),
         };
 
         let augm = node.child_by_field_name("augm");
         let augm = match augm {
-            Some(augm) => {
-                // over is a note
-                Some(augm.utf8_text(&source.as_bytes()).unwrap().into())
-            }
+            Some(augm) => augm.utf8_text(source.as_bytes()).unwrap().try_into().ok(),
             None => None,
         };
 
@@ -117,7 +142,7 @@ impl Chord {
             None => None,
         };
 
-        Some(Self(note, mode, augm, bass))
+        Some(Self(root, mode, augm, bass))
     }
 }
 
@@ -134,12 +159,13 @@ impl Display for Chord {
     }
 }
 
-impl From<&str> for Acc {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for Acc {
+    type Error = &'static str;
+    fn try_from(s: &str) -> Result<Acc, &'static str> {
         match s {
-            "b" => Self::Flat,
-            "#" => Self::Sharp,
-            _ => Self::Natural,
+            "b" => Ok(Self::Flat),
+            "#" => Ok(Self::Sharp),
+            _ => Err("Invalid acc"),
         }
     }
 }
@@ -154,16 +180,18 @@ impl Display for Acc {
     }
 }
 
-impl From<&str> for Aug {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for Aug {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, &'static str> {
         match s {
-            "7" => Self::Seven,
-            "9" => Self::Nine,
-            "11" => Self::Eleven,
-            "13" => Self::Thirteen,
-            "M7" => Self::MajSeven,
-            "5" => Self::Five,
-            _ => panic!("Invalid aug"),
+            "7" => Ok(Self::Seven),
+            "9" => Ok(Self::Nine),
+            "11" => Ok(Self::Eleven),
+            "13" => Ok(Self::Thirteen),
+            "M7" => Ok(Self::MajSeven),
+            "5" => Ok(Self::Five),
+            _ => Err("Invalid aug"),
         }
     }
 }
@@ -181,17 +209,19 @@ impl Display for Aug {
     }
 }
 
-impl From<&str> for WhiteNote {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for WhiteNote {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, &'static str> {
         match s {
-            "A" => Self::A,
-            "B" => Self::B,
-            "C" => Self::C,
-            "D" => Self::D,
-            "E" => Self::E,
-            "F" => Self::F,
-            "G" => Self::G,
-            _ => panic!("Invalid note"),
+            "A" => Ok(Self::A),
+            "B" => Ok(Self::B),
+            "C" => Ok(Self::C),
+            "D" => Ok(Self::D),
+            "E" => Ok(Self::E),
+            "F" => Ok(Self::F),
+            "G" => Ok(Self::G),
+            _ => Err("Invalid note"),
         }
     }
 }
@@ -210,15 +240,17 @@ impl Display for WhiteNote {
     }
 }
 
-impl From<&str> for Mode {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for Mode {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, &'static str> {
         match s {
-            "m" => Self::Minor,
-            "dim" => Self::Dim,
-            "aug" => Self::Aug,
-            "sus4" => Self::Sus4,
-            "sus2" => Self::Sus2,
-            _ => Self::Major,
+            "m" => Ok(Self::Minor),
+            "dim" => Ok(Self::Dim),
+            "aug" => Ok(Self::Aug),
+            "sus4" => Ok(Self::Sus4),
+            "sus2" => Ok(Self::Sus2),
+            _ => Err("Unrecognized mode"),
         }
     }
 }
@@ -236,17 +268,19 @@ impl Display for Mode {
     }
 }
 
-impl From<&str> for Octave {
-    fn from(s: &str) -> Self {
+impl TryFrom<&str> for Octave {
+    type Error = &'static str;
+
+    fn try_from(s: &str) -> Result<Self, &'static str> {
         match s {
-            "1" => Self::One,
-            "2" => Self::Two,
-            "3" => Self::Three,
-            "4" => Self::Four,
-            "5" => Self::Five,
-            "6" => Self::Six,
-            "7" => Self::Seven,
-            _ => panic!("Invalid octave"),
+            "1" => Ok(Self::One),
+            "2" => Ok(Self::Two),
+            "3" => Ok(Self::Three),
+            "4" => Ok(Self::Four),
+            "5" => Ok(Self::Five),
+            "6" => Ok(Self::Six),
+            "7" => Ok(Self::Seven),
+            _ => Err("Invalid octave"),
         }
     }
 }
