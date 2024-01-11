@@ -1,0 +1,56 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// lets go
+grid beat {
+	1_2_
+	__3_
+}
+
+map beat {
+	1: kick,
+	2: clap,
+	3: snare,
+}
+
+grid beat2 {
+	_1_1	
+	_1_2	
+}
+
+map beat2 {
+	1: kick,
+	2: clap,
+}
+
+grid chords {
+	[3]Cm7/C&&&&&&&
+	[2]Fm7/F&&&&&&&
+	// [2]Ab/Ab&&&&&&&
+	// [2]Fm7/F&&&&&&&
+}
+
+grid chords2 {
+	Cm9&_Cm7&_Cm_
+	Fm9&_Fm7&_Fm_
+	// Ab&_Ab&_Ab_
+	// Fm9&_Fm7&_Fm_
+}
+

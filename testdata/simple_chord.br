@@ -1,0 +1,37 @@
+grid chordProgression {
+	Cm7/C__		[3]Ab/Ab [3]Fm7/Ab [3]Ab/Ab [3]Fm7/F&
+	[3]Gm7/Bb__ [3]Fm7/F&& [3]Ab/Ab&
+}
+
+// grid highChords {
+// 	[5]Cm7/F_[5]Cm7/F_	
+// 	[5]Csus47/Ab&&_
+// 	[5]Csus27/Bb_[5]Csus27/Bb_
+// 	[5]Csus47/Bb&&_
+// }
+
+grid medChords {
+	[4]Cm7/F_[4]Cm7/F_	
+	[4]Csus47/Ab&&_
+	[4]Csus27/Bb_[4]Csus27/Bb_
+	[4]Csus47/Bb&&_
+}
+
+// grid chordProgression2 {
+// 	[3]Cm7/C&&		[2]Ab/Ab&&	[2]Fm7/F&
+// 	[2]Gm7/Bb&&		[2]Fm7/F&&	[2]Ab/Ab&
+// }
+
+// grid otherchords3 {
+// 	[4]Cm7/F&&&	
+// 	[4]Csus47/Ab&&&
+// 	[4]Csus27/Bb&&&
+// 	[4]Csus47/Bb&&&
+// }
+
+// grid jazz {
+// 	[3]AbM7/Ab&&&
+// 	[3]F#7/F#&&&
+// 	[3]C#M7/C#&&&
+// 	[3]EM7/E&&&
+// }

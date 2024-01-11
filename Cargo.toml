@@ -14,4 +14,11 @@ cc = "*"
 tree-sitter-breaker = { version = "0.1.1", path = "../tree-sitter-breaker" }
 tree-sitter = "0.20"
 clap = { version = "4.4", features = ["derive"] }
-cpal = "0.15.2"
+cpal = { version = "0.15.2", features = ["jack"] }
+num = "0.4"
+num-derive = "0.4"
+num-traits = "0.2"
+notify = "6.1.1"
+rand = "0.8.5"
+hound = "3.5.1"
+dasp_sample = "0.11.0"

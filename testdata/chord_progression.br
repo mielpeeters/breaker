@@ -1,0 +1,16 @@
+grid threeeight {
+	0__0__0_
+	1__1__1_
+	2__2__2_
+	3__3__3_
+}
+
+map threeeight{
+	0: Cm7,
+	1: F7,
+	2: BbM7,
+	3: EbM7
+}
+
+play threeeight 1/16 
+

@@ -1,5 +1,15 @@
-use breaker::{chromatic::Chord, grid::Grid, util::FromNode};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+    thread,
+};
+
+use breaker::{audio_engine, pipeline::Pipeline};
 use clap::Parser as ClapParser;
+use notify::{
+    event::{DataChange, ModifyKind},
+    Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
+};
 use tree_sitter::Parser;
 
 #[derive(clap::Parser, Debug)]
@@ -16,63 +26,64 @@ fn main() {
         .set_language(tree_sitter_breaker::language())
         .unwrap();
 
+    let input_file = PathBuf::try_from(args.input_file).unwrap();
+
     // read file
-    let source_code = std::fs::read_to_string(args.input_file).unwrap();
+    let source_code = std::fs::read_to_string(&input_file).unwrap();
 
     // parse
-    let tree = parser.parse(&source_code, None).unwrap();
-    let root = tree.root_node();
+    let mut tree = parser.parse(&source_code, None).unwrap();
 
-    println!("root: {}", root.to_sexp());
+    let (pipeline, source) = Pipeline::from_tree(&tree, &source_code);
+    let shared_pipeline = Arc::new(Mutex::new(pipeline));
+    let _eng = audio_engine::start(source);
 
-    let mut walk = root.walk();
+    // run the pipeline thread
+    let shared_pipeline_thread = shared_pipeline.clone();
+    thread::spawn(move || loop {
+        let mut p = shared_pipeline_thread.lock().unwrap();
 
-    // TODO: find a way to traverse the tree properly
-    //       how is this done in well-known parsers?
-    let chord = loop {
-        // go to the next sibling, else go one level deeper
-        if !walk.goto_first_child() {
-            if !walk.goto_next_sibling() {
-                break None;
+        let Ok(_) = p.send_sample() else {
+            break;
+        };
+    });
+
+    // set up file watcher
+    let (tx, rx) = std::sync::mpsc::channel();
+
+    let mut watcher = RecommendedWatcher::new(tx, Config::default()).unwrap();
+
+    watcher
+        .watch(&input_file.parent().unwrap(), RecursiveMode::Recursive)
+        .unwrap();
+
+    let target_event_kind = EventKind::Modify(ModifyKind::Data(DataChange::Any));
+
+    for msg in rx {
+        match msg {
+            Ok(event) => {
+                if event.kind != target_event_kind {
+                    continue;
+                }
+                if event
+                    .paths
+                    .iter()
+                    .any(|path| path.file_name() == input_file.file_name())
+                {
+                    println!("Reparse the tree!");
+                    let source_code = std::fs::read_to_string(&input_file).unwrap();
+                    tree = parser.parse(&source_code, None).unwrap();
+                    let new_p = Pipeline::from_tree(&tree, &source_code).0;
+                    {
+                        let mut p = shared_pipeline.lock().unwrap();
+                        p.update(new_p);
+                        println!("Tree was updated!");
+                    }
+                    // TODO: update the audio pipeline in the <Arc<Mutex<Pipeline>> such that the
+                    //       audio engine will be updated
+                }
             }
+            Err(err) => println!("Error: {}", err),
         }
-
-        if walk.node().kind() == "chord" {
-            break Some(walk.node());
-        }
-    };
-
-    let Some(chord) = chord else {
-        println!("No chord found");
-        return;
-    };
-    let chord = Chord::from_node(&chord, &source_code).unwrap();
-    println!("chord: {}", chord);
-
-    let root = tree.root_node();
-
-    println!("root: {}", root.to_sexp());
-
-    let mut walk = root.walk();
-
-    let grid = loop {
-        // go to the next sibling, else go one level deeper
-        if !walk.goto_first_child() {
-            if !walk.goto_next_sibling() {
-                break None;
-            }
-        }
-
-        if walk.node().kind() == "grid" {
-            break Some(walk.node());
-        }
-    };
-
-    let Some(grid) = grid else {
-        println!("No grid found");
-        return;
-    };
-    let grid = Grid::from_node(&grid, &source_code).unwrap();
-
-    println!("grid: {}", grid);
+    }
 }
