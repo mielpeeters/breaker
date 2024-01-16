@@ -4,7 +4,10 @@ use std::{
     thread,
 };
 
-use breaker::{audio_engine, pipeline::Pipeline};
+use breaker::{
+    audio_engine,
+    pipeline::{Pipeline, PipelineConfig},
+};
 use clap::Parser as ClapParser;
 use notify::{
     event::{DataChange, ModifyKind},
@@ -15,8 +18,11 @@ use tree_sitter::Parser;
 #[derive(clap::Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(required = true)]
     input_file: String,
+
+    #[arg(short, long, default_value = "samples")]
+    sample_dir: String,
 }
 
 fn main() {
@@ -34,7 +40,11 @@ fn main() {
     // parse
     let mut tree = parser.parse(&source_code, None).unwrap();
 
-    let (pipeline, source) = Pipeline::from_tree(&tree, &source_code);
+    let pipeline_config = PipelineConfig {
+        samples_dir: args.sample_dir,
+    };
+
+    let (pipeline, source) = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config));
     let shared_pipeline = Arc::new(Mutex::new(pipeline));
     let _eng = audio_engine::start(source);
 
@@ -73,7 +83,7 @@ fn main() {
                     println!("Reparse the tree!");
                     let source_code = std::fs::read_to_string(&input_file).unwrap();
                     tree = parser.parse(&source_code, None).unwrap();
-                    let new_p = Pipeline::from_tree(&tree, &source_code).0;
+                    let new_p = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config)).0;
                     {
                         let mut p = shared_pipeline.lock().unwrap();
                         p.update(new_p);

@@ -1,0 +1,33 @@
+tempo 90 4/4
+
+grid bd {
+	1___1_2_
+	1___2___
+	1___1_2_
+	1___2___
+}
+
+map bd {
+	1: kick,
+	2: piccolo,
+}
+
+note bd 1/20
+
+grid chords {
+	[3]AbM7&
+	[3]Bbm7/Bb&
+	[3]Fm7/F&
+	[3]EbM6/Eb&
+}
+
+note chords 1/2
+
+grid chords2 {
+	[4]AbM7&
+	[4]Bbm7/Bb&
+	[4]Fm7/F&
+	[4]EbM6&
+}
+
+note chords2 1/2

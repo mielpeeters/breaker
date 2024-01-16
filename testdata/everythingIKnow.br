@@ -1,0 +1,80 @@
+tempo 180 4/4
+
+grid beat0 {
+    1&4& 3_3_
+    2&_3 5&3_
+} map beat0 {
+    1: kick2,
+    2: rimshots3,
+    5: rimshots3 30%,
+    3: hihat4 50%,
+	4: kick2 40%,
+} note beat0 1/16
+
+grid bd {
+	1___
+} map bd {
+	1: kick2,
+} note bd 1/8
+mix bd 2.0
+
+
+// TODO: change so that hats only needs to be written once
+grid hats {
+	1 1 1 2
+	1 2 1 2
+} map hats {
+	1: hihat7 80%,
+	2: hihat9 80%,
+} note hats 1/8
+
+grid chords {
+	[3]D#m7/F#&&&____
+	[3]F#7/F#&&&____
+	[3]D#m7/F#&&&____
+	[3]F#7/F#&&
+	[3]C#m7/C#&&
+	[3]Cm7/C&
+} note chords 1/4
+
+mix chords 1.2
+mix beat0 1.3
+// mix hats 0.8
+
+// grid chords2 {
+// 	[4]D#m7/F#__ [4]D#m7/F#__ [4]D#m7/F#_
+// 	[4]D#m7/F#__ [4]D#m7/F#__ [4]D#m7/F#_
+
+// 	[4]F#7/F#__ [4]F#7/F#__ [4]F#7/F#_
+// 	[4]F#7/F#__ [4]F#7/F#__ [4]F#7/F#_
+
+// 	[4]D#m7/F#__ [4]D#m7/F#__ [4]D#m7/F#_
+// 	[4]D#m7/F#__ [4]D#m7/F#__ [4]D#m7/F#_
+
+// 	[4]F#7/F#__ [4]F#7/F#__ [4]F#7/F#_
+// 	[4]C#m7/C#__ [4]Cm7/C__ [4]Cm7/C_
+// }
+
+// note chords2 1/8
+
+grid melody {
+	d# f# a# &  [5]c# e  g# t
+	f# d# c# a# [5]d# &  g# t
+	g# t  g# &    e  d# c# t
+}
+
+note melody 1/8
+
+mix melody 0.2
+
+// grid bdsd {
+// 	1&&_
+// 	2&&_
+// }
+
+// map bdsd {
+// 	1: kick6,
+// 	2: snare4,
+// }
+
+// note bdsd 1/8

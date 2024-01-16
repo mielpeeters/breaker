@@ -15,13 +15,12 @@
 
 
 
-
-
+tempo 80 4/4
 
 // lets go
 grid beat {
-	1_2_
-	__3_
+	1_2_3_2_
+	1_2_3_2_
 }
 
 map beat {
@@ -30,8 +29,10 @@ map beat {
 	3: snare,
 }
 
+note beat 1/4
+
 grid beat2 {
-	_1_1	
+	___1	
 	_1_2	
 }
 
@@ -40,17 +41,25 @@ map beat2 {
 	2: clap,
 }
 
+// grid beat3 {
+// 	1_1_
+// }
+
+// map beat3 {
+// 	1: piano,
+// }
+
 grid chords {
 	[3]Cm7/C&&&&&&&
 	[2]Fm7/F&&&&&&&
+}
 	// [2]Ab/Ab&&&&&&&
 	// [2]Fm7/F&&&&&&&
-}
 
 grid chords2 {
-	Cm9&_Cm7&_Cm_
-	Fm9&_Fm7&_Fm_
-	// Ab&_Ab&_Ab_
-	// Fm9&_Fm7&_Fm_
+	CmM9&_Cm7&_Cm_
+	Fm7M9&_Fm7&_Fm_
+	Ab&_Ab&_Ab_
+	Fm9M11&_Fm7&_Fm_
 }
 

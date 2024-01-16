@@ -21,7 +21,7 @@ fn get_test_tree() -> (String, tree_sitter::Tree) {
 fn chord_parse_and_freqs() {
     let (source, tree) = get_test_tree();
 
-    let playables = Pipeline::from_tree(&tree, &source).0.playables;
+    let playables = Pipeline::from_tree(&tree, &source, None).0.playables;
 
     let grid = playables
         .iter()

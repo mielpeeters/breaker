@@ -12,9 +12,9 @@ use num_derive::FromPrimitive;
 use crate::util::FromNode;
 
 /// A chord consists of a root note, a mode, an optional augmentation, and an optional bass note.
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone)]
 // TODO: add inversions support!
-pub struct Chord(Note, Mode, Option<Aug>, Option<Note>);
+pub struct Chord(Note, Mode, Augs, Option<Note>);
 
 /// A note consists of a white note, an accidental, and an octave.
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -74,19 +74,32 @@ pub enum Mode {
 /// Possible augmentations for chords (of course, there are a lot more)
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Aug {
+    Six,
+    MajSix,
     Seven,
-    Nine,
-    Eleven,
-    Thirteen,
     MajSeven,
-    Five,
+    Nine,
+    MajNine,
+    Eleven,
+    MajEleven,
+    Thirteen,
+    MajThirteen,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Augs(Vec<Aug>);
 
 impl FromNode for Note {
     /// Parse a note from a tree-sitter node, with given source string (which generated the
     /// treesitter node).
     fn from_node(node: &tree_sitter::Node, source: &str) -> Option<Self> {
-        let bass = node.child_by_field_name("bass")?;
+        let bass = node.child_by_field_name("bass");
+        let bass = if bass.is_some() {
+            bass.unwrap()
+        } else {
+            node.child_by_field_name("small_bass").unwrap()
+        };
+
         let bass = bass.utf8_text(source.as_bytes()).unwrap();
         let mut bass: PitchClass = bass.try_into().ok()?;
 
@@ -160,6 +173,26 @@ impl Note {
             Octave::Seven => pitch_freq * 8.0,
         }
     }
+
+    pub fn get_sample(&self, time: u128) -> f32 {
+        let freq = self.to_freq();
+
+        let n_overtones = 1;
+        let mut sample: f32 = 0.0;
+        for i in 0..n_overtones {
+            let freq_fact = 1.0 + 2.0 * i as f64;
+            let val = ((time as f64 / 44100.0) * (freq * freq_fact) * 2.0 * std::f64::consts::PI)
+                .sin() as f32;
+            // triangle wave
+            sample += val / (freq_fact as f32).powi(2);
+            // square wave
+            // sample += val / freq_fact as f32;
+        }
+
+        sample /= n_overtones as f32;
+
+        sample
+    }
 }
 
 impl Add<u8> for Note {
@@ -194,11 +227,13 @@ impl FromNode for Chord {
             None => Mode::default(),
         };
 
-        let augm = node.child_by_field_name("augm");
-        let augm = match augm {
-            Some(augm) => augm.utf8_text(source.as_bytes()).unwrap().try_into().ok(),
-            None => None,
-        };
+        // there could be multiple augmentations, if there are none, this will be an empty vector
+        let mut walk = node.walk();
+        let augm_nodes = node.children_by_field_name("augm", &mut walk);
+        let aug_vec: Vec<Aug> = augm_nodes
+            .filter_map(|aug| aug.utf8_text(source.as_bytes()).unwrap().try_into().ok())
+            .collect();
+        let augm = Augs(aug_vec);
 
         let bass = node.child_by_field_name("bass");
         let bass = match bass {
@@ -216,8 +251,8 @@ impl FromNode for Chord {
 impl Display for Chord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}", self.0, self.1)?;
-        if let Some(aug) = &self.2 {
-            write!(f, "{}", aug)?;
+        for a in &self.2 .0 {
+            write!(f, "{}", a)?;
         }
         if let Some(over) = &self.3 {
             write!(f, "/{}", over)?;
@@ -233,9 +268,7 @@ impl Chord {
         let mut relatives = Vec::new();
 
         relatives.append(&mut self.1.to_relatives());
-        if let Some(aug) = &self.2 {
-            relatives.append(&mut aug.to_relatives());
-        }
+        relatives.append(&mut self.2.to_relatives());
 
         // root note
         notes.push(self.0.clone());
@@ -274,8 +307,19 @@ impl Chord {
 
         let mut sample: f32 = 0.0;
 
+        // TODO: write functionally with fold?
         for freq in &freqs {
-            sample += ((time as f64 / 44100.0) * freq * 2.0 * std::f64::consts::PI).sin() as f32;
+            let n_overtones = 1;
+            for i in 0..n_overtones {
+                let freq_fact = 1.0 + 2.0 * i as f64;
+                let val =
+                    ((time as f64 / 44100.0) * (freq * freq_fact) * 2.0 * std::f64::consts::PI)
+                        .sin() as f32;
+                // triangle wave
+                sample += val / (freq_fact as f32).powi(2);
+                // square wave
+                // sample += val / freq_fact as f32;
+            }
         }
 
         sample /= freqs.len() as f32;
@@ -310,12 +354,16 @@ impl TryFrom<&str> for Aug {
 
     fn try_from(s: &str) -> Result<Self, &'static str> {
         match s {
+            "6" => Ok(Self::Six),
+            "M6" => Ok(Self::MajSix),
             "7" => Ok(Self::Seven),
-            "9" => Ok(Self::Nine),
-            "11" => Ok(Self::Eleven),
-            "13" => Ok(Self::Thirteen),
             "M7" => Ok(Self::MajSeven),
-            "5" => Ok(Self::Five),
+            "9" => Ok(Self::Nine),
+            "M9" => Ok(Self::MajNine),
+            "11" => Ok(Self::Eleven),
+            "M11" => Ok(Self::MajEleven),
+            "13" => Ok(Self::Thirteen),
+            "M13" => Ok(Self::MajThirteen),
             _ => Err("Invalid aug"),
         }
     }
@@ -324,12 +372,16 @@ impl TryFrom<&str> for Aug {
 impl Display for Aug {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Six => write!(f, "6"),
+            Self::MajSix => write!(f, "M6"),
             Self::Seven => write!(f, "7"),
-            Self::Nine => write!(f, "9"),
-            Self::Eleven => write!(f, "11"),
-            Self::Thirteen => write!(f, "13"),
             Self::MajSeven => write!(f, "M7"),
-            Self::Five => write!(f, "5"),
+            Self::Nine => write!(f, "9"),
+            Self::MajNine => write!(f, "M9"),
+            Self::Eleven => write!(f, "11"),
+            Self::MajEleven => write!(f, "M11"),
+            Self::Thirteen => write!(f, "13"),
+            Self::MajThirteen => write!(f, "M13"),
         }
     }
 }
@@ -337,13 +389,29 @@ impl Display for Aug {
 impl Aug {
     fn to_relatives(&self) -> Vec<u8> {
         match self {
-            Self::Seven => vec![10],
-            Self::Nine => vec![10, 14],
-            Self::Eleven => vec![17],
-            Self::Thirteen => vec![21],
-            Self::MajSeven => vec![11],
-            Self::Five => vec![7],
+            Aug::Six => vec![8],
+            Aug::MajSix => vec![9],
+            Aug::Seven => vec![10],
+            Aug::MajSeven => vec![11],
+            Aug::Nine => vec![13],
+            Aug::MajNine => vec![14],
+            Aug::Eleven => vec![16],
+            Aug::MajEleven => vec![17],
+            Aug::Thirteen => vec![20],
+            Aug::MajThirteen => vec![21],
         }
+    }
+}
+
+impl Augs {
+    fn to_relatives(&self) -> Vec<u8> {
+        let mut relatives = Vec::new();
+
+        for aug in &self.0 {
+            relatives.append(&mut aug.to_relatives());
+        }
+
+        relatives
     }
 }
 
@@ -352,13 +420,13 @@ impl TryFrom<&str> for PitchClass {
 
     fn try_from(s: &str) -> Result<Self, &'static str> {
         match s {
-            "A" => Ok(Self::A),
-            "B" => Ok(Self::B),
-            "C" => Ok(Self::C),
-            "D" => Ok(Self::D),
-            "E" => Ok(Self::E),
-            "F" => Ok(Self::F),
-            "G" => Ok(Self::G),
+            "A" | "a" => Ok(Self::A),
+            "B" | "t" => Ok(Self::B),
+            "C" | "c" => Ok(Self::C),
+            "D" | "d" => Ok(Self::D),
+            "E" | "e" => Ok(Self::E),
+            "F" | "f" => Ok(Self::F),
+            "G" | "g" => Ok(Self::G),
             _ => Err("Invalid note"),
         }
     }
