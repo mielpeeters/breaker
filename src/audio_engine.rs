@@ -1,4 +1,7 @@
-use std::sync::mpsc::Receiver;
+use std::{
+    sync::mpsc::Receiver,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use cpal::{
     traits::{DeviceTrait, HostTrait},
@@ -28,6 +31,13 @@ pub fn start(source: Receiver<f32>) -> Stream {
                     println!("Some receiving error at the audio engine side");
                     continue;
                 };
+                // println!(
+                //     "audio_engine, {}",
+                //     SystemTime::now()
+                //         .duration_since(UNIX_EPOCH)
+                //         .unwrap()
+                //         .as_nanos()
+                // );
                 for ch in frame {
                     // TODO: load pipeline defined audio samples
                     *ch = sample;

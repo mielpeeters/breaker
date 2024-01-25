@@ -94,8 +94,8 @@ impl FromNode for Note {
     /// treesitter node).
     fn from_node(node: &tree_sitter::Node, source: &str) -> Option<Self> {
         let bass = node.child_by_field_name("bass");
-        let bass = if bass.is_some() {
-            bass.unwrap()
+        let bass = if let Some(bass) = bass {
+            bass
         } else {
             node.child_by_field_name("small_bass").unwrap()
         };
@@ -177,16 +177,16 @@ impl Note {
     pub fn get_sample(&self, time: u128) -> f32 {
         let freq = self.to_freq();
 
-        let n_overtones = 1;
+        let n_overtones = 20;
         let mut sample: f32 = 0.0;
         for i in 0..n_overtones {
             let freq_fact = 1.0 + 2.0 * i as f64;
             let val = ((time as f64 / 44100.0) * (freq * freq_fact) * 2.0 * std::f64::consts::PI)
                 .sin() as f32;
             // triangle wave
-            sample += val / (freq_fact as f32).powi(2);
+            // sample += val / (freq_fact as f32).powi(2);
             // square wave
-            // sample += val / freq_fact as f32;
+            sample += val / freq_fact as f32;
         }
 
         sample /= n_overtones as f32;
@@ -199,9 +199,9 @@ impl Add<u8> for Note {
     type Output = Self;
 
     fn add(self, rhs: u8) -> Self {
-        let mut note = self.clone();
-        let notenum = note.0.clone() as u8;
-        if notenum as u8 + rhs > 11 {
+        let mut note = self;
+        let notenum = note.0 as u8;
+        if notenum + rhs > 11 {
             note.1 = note.1 + 1;
         }
         for _ in 0..rhs {
@@ -215,7 +215,7 @@ impl FromNode for Chord {
     fn from_node(node: &tree_sitter::Node, source: &str) -> Option<Self> {
         let root = node.child_by_field_name("root")?;
 
-        let root = Note::from_node(&root, &source)?;
+        let root = Note::from_node(&root, source)?;
 
         let mode = node.child_by_field_name("mode");
         let mode = match mode {
@@ -267,11 +267,11 @@ impl Chord {
 
         let mut relatives = Vec::new();
 
-        relatives.append(&mut self.1.to_relatives());
-        relatives.append(&mut self.2.to_relatives());
+        relatives.append(&mut self.1.as_relatives());
+        relatives.append(&mut self.2.as_relatives());
 
         // root note
-        notes.push(self.0.clone());
+        notes.push(self.0);
 
         // mode and augmentation notes
         for relative in relatives {
@@ -281,7 +281,7 @@ impl Chord {
 
         // bass note
         if let Some(bass) = &self.3 {
-            let mut bass = bass.clone();
+            let mut bass = *bass;
 
             // lower the bass to the octave below the root
             bass.1 = notes[0].1 + -1;
@@ -292,7 +292,7 @@ impl Chord {
         notes
     }
 
-    pub fn to_freqs(&self) -> Vec<f64> {
+    pub fn as_freqs(&self) -> Vec<f64> {
         let mut freqs = Vec::new();
 
         for note in self.to_notes() {
@@ -303,22 +303,22 @@ impl Chord {
     }
 
     pub fn get_sample(&self, time: u128) -> f32 {
-        let freqs = self.to_freqs();
+        let freqs = self.as_freqs();
 
         let mut sample: f32 = 0.0;
 
         // TODO: write functionally with fold?
         for freq in &freqs {
-            let n_overtones = 1;
+            let n_overtones = 15;
             for i in 0..n_overtones {
                 let freq_fact = 1.0 + 2.0 * i as f64;
                 let val =
                     ((time as f64 / 44100.0) * (freq * freq_fact) * 2.0 * std::f64::consts::PI)
                         .sin() as f32;
                 // triangle wave
-                sample += val / (freq_fact as f32).powi(2);
+                // sample += val / (freq_fact as f32).powi(2);
                 // square wave
-                // sample += val / freq_fact as f32;
+                sample += val / freq_fact as f32;
             }
         }
 
@@ -387,7 +387,7 @@ impl Display for Aug {
 }
 
 impl Aug {
-    fn to_relatives(&self) -> Vec<u8> {
+    fn as_relatives(&self) -> Vec<u8> {
         match self {
             Aug::Six => vec![8],
             Aug::MajSix => vec![9],
@@ -404,11 +404,11 @@ impl Aug {
 }
 
 impl Augs {
-    fn to_relatives(&self) -> Vec<u8> {
+    fn as_relatives(&self) -> Vec<u8> {
         let mut relatives = Vec::new();
 
         for aug in &self.0 {
-            relatives.append(&mut aug.to_relatives());
+            relatives.append(&mut aug.as_relatives());
         }
 
         relatives
@@ -467,7 +467,7 @@ impl TryFrom<&str> for Mode {
 }
 
 impl Mode {
-    fn to_relatives(&self) -> Vec<u8> {
+    fn as_relatives(&self) -> Vec<u8> {
         match self {
             Self::Major => vec![4, 7],
             Self::Minor => vec![3, 7],
@@ -495,7 +495,7 @@ impl AddAssign<Acc> for PitchClass {
         // HACK: this is a bit of a hack, but it works
         //       i'd rather not have to clone self here...
         let pitch: PitchClass =
-            num::FromPrimitive::from_i32((self.clone() as i32 + rhs as i32) % 12).unwrap();
+            num::FromPrimitive::from_i32((*self as i32 + rhs as i32) % 12).unwrap();
         *self = pitch;
     }
 }
@@ -570,8 +570,6 @@ impl Add<i8> for Octave {
         let mut octave_num = self as i8;
         octave_num += rhs;
 
-        let octave = octave_num.try_into().unwrap();
-
-        octave
+        octave_num.try_into().unwrap()
     }
 }

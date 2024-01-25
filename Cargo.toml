@@ -9,6 +9,7 @@ authors = ["Miel Peeters"]
 
 [build-dependencies]
 cc = "*"
+hound = "3.5.1"
 
 [dependencies]
 tree-sitter-breaker = { version = "0.1.1", path = "../tree-sitter-breaker" }

@@ -2,13 +2,13 @@
 * Grid module implements the grid sequencer grid parsing
 */
 
-use std::{collections::HashMap, fmt::Display, path::Path, sync::Arc, time::Instant};
+use std::{collections::HashMap, fmt::Display, time::Instant};
 
-use dasp_sample::Sample as Smp;
 use rand::Rng;
 
 use crate::{
     chromatic::{Chord, Note},
+    sampler::{SamplePlayer, SampleSet},
     util::FromNode,
 };
 
@@ -36,66 +36,6 @@ pub struct Grid {
     // the note length of one token
     note_length: (u32, u32),
     samples_per_hit: Option<u32>,
-}
-
-/// SamplePlayer contains a sample reference and the information
-/// which is required to play it
-#[derive(Debug, PartialEq, Clone)]
-pub struct SamplePlayer {
-    sample: Arc<Sample>,
-    start: u128,
-    current: u128,
-}
-
-/// Sample contains the name and data of a single sample
-#[derive(Debug, PartialEq)]
-pub struct Sample {
-    name: String,
-    data: Vec<f32>,
-}
-
-#[derive(Debug)]
-pub struct SampleSet {
-    pub samples: HashMap<String, Arc<Sample>>,
-}
-
-impl Sample {
-    pub fn try_new(file: &Path) -> Option<Self> {
-        let name = file.file_name().unwrap().to_str().unwrap();
-        let Ok(mut data) = hound::WavReader::open(file) else {
-            return None;
-        };
-        let mut samples = vec![];
-
-        let spec = data.spec().channels;
-
-        for s in data.samples().step_by(spec as usize) {
-            let s: i16 = s.unwrap();
-            let converted: f32 = s.to_sample();
-            samples.push(converted)
-        }
-
-        Some(Self {
-            name: name.to_string(),
-            data: samples,
-        })
-    }
-}
-
-impl SamplePlayer {
-    fn get_sample(&mut self, time: u128) -> f32 {
-        if time > (self.current + 1) as u128 {
-            self.start = time;
-        }
-
-        self.current = time;
-
-        let index = (time as i128 - self.start as i128) as usize;
-        match self.sample.data.get(index) {
-            Some(s) => *s,
-            None => 0.0,
-        }
-    }
 }
 
 impl GridToken {
@@ -156,19 +96,11 @@ impl FromNode for Grid {
                     "raw_token" => token_text.try_into().ok(),
                     "chord" => {
                         let res = Chord::from_node(&token, source);
-                        if let Some(chord) = res {
-                            Some(GridToken::Chord(chord))
-                        } else {
-                            None
-                        }
+                        res.map(GridToken::Chord)
                     }
                     "single_note" => {
                         let res = Note::from_node(&token, source);
-                        if let Some(note) = res {
-                            Some(GridToken::Note(note))
-                        } else {
-                            None
-                        }
+                        res.map(GridToken::Note)
                     }
                     &_ => None,
                 }
@@ -227,7 +159,7 @@ impl Grid {
             match &mut self.tokens[index] {
                 GridToken::Prob(p, _) => {
                     let mut rng = rand::thread_rng();
-                    let should_play = rng.gen_bool((*p as f32 / 100.0).into());
+                    let should_play = rng.gen_bool((*p / 100.0).into());
                     if should_play {
                         self.now_playing = index;
                     }
@@ -240,11 +172,11 @@ impl Grid {
 
             self.next_scheduled = (index + 1) % self.tokens.len();
 
-            if let GridToken::Hit(s) | GridToken::Prob(_, s) = &self.tokens[index] {
-                println!("{}", s.sample.name);
-            } else if let GridToken::Chord(c) = &self.tokens[index] {
-                println!("{}", c);
-            }
+            // if let GridToken::Hit(s) | GridToken::Prob(_, s) = &self.tokens[index] {
+            //     println!("{}", s.sample.name);
+            // } else if let GridToken::Chord(c) = &self.tokens[index] {
+            //     println!("{}", c);
+            // }
         }
 
         self.tokens[self.now_playing].get_sample(time)
@@ -285,11 +217,7 @@ impl Grid {
                     let name = value.child_by_field_name("name").unwrap();
                     let value_text = name.utf8_text(source.as_bytes()).unwrap();
                     let sample = sampleset.samples.get(value_text).unwrap();
-                    let sampleplayer = SamplePlayer {
-                        sample: sample.clone(),
-                        start: 0,
-                        current: 0,
-                    };
+                    let sampleplayer = SamplePlayer::new(sample.clone());
 
                     if let Some(p) = value.child_by_field_name("probability") {
                         let Some(p) = p.child(0) else {
@@ -322,7 +250,7 @@ impl Grid {
                 *token = value.clone();
             }
         });
-        println!("Cloning map values took {:?}", start.elapsed());
+        // println!("Cloning map values took {:?}", start.elapsed());
     }
 
     pub fn set_tempo(&mut self, tempo: f32) {

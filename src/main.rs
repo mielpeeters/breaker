@@ -64,7 +64,7 @@ fn main() {
     let mut watcher = RecommendedWatcher::new(tx, Config::default()).unwrap();
 
     watcher
-        .watch(&input_file.parent().unwrap(), RecursiveMode::Recursive)
+        .watch(input_file.parent().unwrap(), RecursiveMode::Recursive)
         .unwrap();
 
     let target_event_kind = EventKind::Modify(ModifyKind::Data(DataChange::Any));
@@ -80,14 +80,14 @@ fn main() {
                     .iter()
                     .any(|path| path.file_name() == input_file.file_name())
                 {
-                    println!("Reparse the tree!");
+                    // println!("Reparse the tree!");
                     let source_code = std::fs::read_to_string(&input_file).unwrap();
                     tree = parser.parse(&source_code, None).unwrap();
                     let new_p = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config)).0;
                     {
                         let mut p = shared_pipeline.lock().unwrap();
                         p.update(new_p);
-                        println!("Tree was updated!");
+                        // println!("Tree was updated!");
                     }
                     // TODO: update the audio pipeline in the <Arc<Mutex<Pipeline>> such that the
                     //       audio engine will be updated

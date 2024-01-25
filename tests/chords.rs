@@ -35,7 +35,7 @@ fn chord_parse_and_freqs() {
 
     match chord {
         GridToken::Chord(c) => {
-            let freqs = c.to_freqs();
+            let freqs = c.as_freqs();
             assert!(freqs.len() == 3, "Chord length is not 3, but {:?}", freqs);
         }
         _ => panic!("GridToken is not a chord"),

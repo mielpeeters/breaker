@@ -5,10 +5,13 @@ use std::{
         mpsc::{self, Receiver, SendError, SyncSender},
         Arc,
     },
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use crate::{
-    grid::{Grid, Sample, SampleSet},
+    grid::Grid,
+    postproc::{Effect, FIRBuilder, Reverb, FIR},
+    sampler::{Sample, SampleSet},
     util::FromNode,
 };
 
@@ -25,6 +28,7 @@ pub struct Pipeline {
     pub mix: HashMap<String, f32>,
     pub time: u128,
     sink: SyncSender<f32>,
+    effects: Vec<Effect>,
 }
 
 pub struct PipelineConfig {
@@ -52,34 +56,14 @@ fn get_samples(config: &PipelineConfig) -> HashMap<String, Arc<Sample>> {
     samples
 }
 
-// HACK: this is a hacky way to set the mix, but it works
-//       should be so that the given mix values correspond to the mix ratios
-fn set_mix(mix: &mut HashMap<String, f32>, index: &str, value: f32) {
-    let old = mix[index];
-    let old_remainder = 1.0 - old;
+fn rescale_mix(mix: &mut HashMap<String, f32>) {
+    let total: f32 = mix.values().sum();
 
-    let default = 1.0 / (mix.len() as f32);
-
-    let mut value = value * default;
-
-    if value > 1.0 {
-        value = 1.0;
+    for (_name, value) in mix.iter_mut() {
+        *value /= total;
     }
 
-    let new_remainder = 1.0 - value;
-
-    mix.iter_mut().for_each(|(i, x)| {
-        if i != index {
-            *x = *x * (new_remainder / old_remainder);
-        } else {
-            *x = value;
-        }
-    });
-
-    println!("{:?}", mix);
-
-    let val = mix.iter().fold(0.0, |acc, (_, x)| acc + x) - 1.0;
-    assert!(val.abs() < 0.001, "Value wasnt 1.0, but had error {}", val);
+    println!("rescaled mix: {:?}", mix);
 }
 
 impl Pipeline {
@@ -119,10 +103,9 @@ impl Pipeline {
             }
         }
 
-        let mix = 1.0 / (playables.len() as f32);
         let mut mix = playables
-            .iter()
-            .map(|(i, _x)| (i.to_string(), mix))
+            .keys()
+            .map(|i| (i.to_string(), 1.0))
             .collect::<HashMap<String, f32>>();
 
         let mut cursor = tree.root_node().walk();
@@ -184,11 +167,35 @@ impl Pipeline {
                 let value = value.utf8_text(source.as_bytes()).unwrap();
                 let value = value.parse().unwrap();
 
-                set_mix(&mut mix, target, value);
+                mix.insert(target.to_string(), value);
+            } else if node.kind() == "setter" {
+                let target = node.child_by_field_name("name").unwrap();
+                let target = target.utf8_text(source.as_bytes()).unwrap();
+
+                let _playable = playables.get_mut(target).unwrap();
+
+                let property = node.child_by_field_name("property").unwrap();
+                let _property = property.utf8_text(source.as_bytes()).unwrap();
+
+                let value = node.child_by_field_name("value").unwrap();
+                let _value = value.utf8_text(source.as_bytes()).unwrap();
+
+                // TODO: implement properties for playables
+                //       -> all properties should be playable-independent
+                //       -> more like post-processing steps than properties!
             }
         }
 
-        let (s_tx, rx) = mpsc::sync_channel(512);
+        rescale_mix(&mut mix);
+
+        let (s_tx, rx) = mpsc::sync_channel(2048);
+
+        let mut effects: Vec<Effect> = vec![];
+        // fir lowpass filter with cutoff at 2000 Hz
+        let fir = FIRBuilder::new().low_pass(2800.0, 44100.0).build();
+        effects.push(Effect::FIR(fir));
+        let rev = Reverb::new();
+        effects.push(Effect::Reverb(rev));
 
         (
             Self {
@@ -196,6 +203,7 @@ impl Pipeline {
                 mix,
                 time: 0,
                 sink: s_tx,
+                effects,
             },
             rx,
         )
@@ -207,19 +215,40 @@ impl Pipeline {
     }
 
     pub fn send_sample(&mut self) -> Result<(), SendError<f32>> {
+        // TODO: implement post-processing steps per-playable based on properties
         let mut sample: f32 = 0.0;
         for playable in self.playables.iter_mut() {
-            match playable.1 {
+            let dry = match playable.1 {
                 Playable::Grid(g) => {
                     let s = g.get_sample(self.time);
-                    sample += s * self.mix[playable.0];
+                    s * self.mix[playable.0]
                 }
-            }
+            };
+            // NOTE: here, the post-processing pipeline should be traversed
+            //       -> keep one per playable!
+            //       -> maybe different, when multiple playables are mixed into one effect?
+            sample += dry
         }
 
         self.time += 1;
 
-        self.sink.send(sample)
+        for effect in self.effects.iter_mut() {
+            sample = match effect {
+                Effect::FIR(f) => f.process(sample),
+                Effect::Reverb(_r) => sample,
+            }
+        }
+
+        let res = self.sink.send(sample);
+        // println!(
+        //     "pipeline, {}",
+        //     SystemTime::now()
+        //         .duration_since(UNIX_EPOCH)
+        //         .unwrap()
+        //         .as_nanos()
+        // );
+
+        res
     }
 }
 
