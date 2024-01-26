@@ -22,7 +22,6 @@ pub enum Playable {
     Grid(Grid),
 }
 
-// TODO: find a better name
 pub struct Pipeline {
     pub playables: HashMap<String, Playable>,
     pub mix: HashMap<String, f32>,

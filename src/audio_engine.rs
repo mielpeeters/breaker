@@ -48,7 +48,6 @@ pub fn start(source: Receiver<f32>) -> (Stream, SupportedStreamConfig) {
                         .as_nanos()
                 );
                 for ch in frame {
-                    // TODO: load pipeline defined audio samples
                     *ch = sample;
                 }
             }
