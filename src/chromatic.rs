@@ -174,14 +174,17 @@ impl Note {
         }
     }
 
-    pub fn get_sample(&self, time: u128) -> f32 {
+    pub fn get_sample(&self, time: u128, sample_rate: u32) -> f32 {
         let freq = self.to_freq();
 
         let n_overtones = 20;
         let mut sample: f32 = 0.0;
         for i in 0..n_overtones {
             let freq_fact = 1.0 + 2.0 * i as f64;
-            let val = ((time as f64 / 44100.0) * (freq * freq_fact) * 2.0 * std::f64::consts::PI)
+            let val = ((time as f64 / (sample_rate as f64))
+                * (freq * freq_fact)
+                * 2.0
+                * std::f64::consts::PI)
                 .sin() as f32;
             // triangle wave
             // sample += val / (freq_fact as f32).powi(2);
@@ -302,19 +305,21 @@ impl Chord {
         freqs
     }
 
-    pub fn get_sample(&self, time: u128) -> f32 {
+    pub fn get_sample(&self, time: u128, sample_rate: u32) -> f32 {
         let freqs = self.as_freqs();
 
         let mut sample: f32 = 0.0;
 
-        // TODO: write functionally with fold?
+        // TODO: write functionally with `.fold()`?
         for freq in &freqs {
             let n_overtones = 15;
             for i in 0..n_overtones {
                 let freq_fact = 1.0 + 2.0 * i as f64;
-                let val =
-                    ((time as f64 / 44100.0) * (freq * freq_fact) * 2.0 * std::f64::consts::PI)
-                        .sin() as f32;
+                let val = ((time as f64 / (sample_rate as f64))
+                    * (freq * freq_fact)
+                    * 2.0
+                    * std::f64::consts::PI)
+                    .sin() as f32;
                 // triangle wave
                 // sample += val / (freq_fact as f32).powi(2);
                 // square wave

@@ -27,6 +27,7 @@ pub struct Pipeline {
     pub playables: HashMap<String, Playable>,
     pub mix: HashMap<String, f32>,
     pub time: u128,
+    sample_rate: u32,
     sink: SyncSender<f32>,
     effects: Vec<Effect>,
 }
@@ -202,9 +203,14 @@ impl Pipeline {
                 time: 0,
                 sink: s_tx,
                 effects,
+                sample_rate: 44100,
             },
             rx,
         )
+    }
+
+    pub fn set_output_config(&mut self, config: &cpal::SupportedStreamConfig) {
+        self.sample_rate = config.sample_rate().0;
     }
 
     pub fn update(&mut self, other: Pipeline) {
@@ -218,7 +224,7 @@ impl Pipeline {
         for playable in self.playables.iter_mut() {
             let dry = match playable.1 {
                 Playable::Grid(g) => {
-                    let s = g.get_sample(self.time);
+                    let s = g.get_sample(self.time, self.sample_rate);
                     s * self.mix[playable.0]
                 }
             };

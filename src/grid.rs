@@ -39,12 +39,12 @@ pub struct Grid {
 }
 
 impl GridToken {
-    fn get_sample(&mut self, time: u128) -> f32 {
+    fn get_sample(&mut self, time: u128, sample_rate: u32) -> f32 {
         match self {
-            GridToken::Hit(s) | GridToken::Prob(_, s) => s.get_sample(time),
+            GridToken::Hit(s) | GridToken::Prob(_, s) => s.get_sample(time, sample_rate),
             GridToken::Pause => 0.0,
-            GridToken::Chord(c) => c.get_sample(time),
-            GridToken::Note(n) => n.get_sample(time),
+            GridToken::Chord(c) => c.get_sample(time, sample_rate),
+            GridToken::Note(n) => n.get_sample(time, sample_rate),
             _ => panic!("This token doesn't have a sample"),
         }
     }
@@ -141,30 +141,38 @@ impl Display for GridToken {
 }
 
 impl Grid {
-    pub fn get_sample(&mut self, time: u128) -> f32 {
+    pub fn get_sample(&mut self, time: u128, sample_rate: u32) -> f32 {
         if self.samples_per_hit.is_none() {
-            self.calc_samples_per_token();
+            self.calc_samples_per_token(sample_rate);
         }
 
         if self.tokens.is_empty() {
             return 0.0;
         }
-        // TODO: implement variable grid speed
 
         let index =
             ((time / self.samples_per_hit.unwrap() as u128) % (self.tokens.len() as u128)) as usize;
 
+        // for the first sample of a new grid index, we need to set the now_playing index
         if index == self.next_scheduled {
             // we need to check whether we should play the next token or not
             match &mut self.tokens[index] {
-                GridToken::Prob(p, _) => {
+                GridToken::Prob(p, s) => {
                     let mut rng = rand::thread_rng();
                     let should_play = rng.gen_bool((*p / 100.0).into());
                     if should_play {
                         self.now_playing = index;
+                        // hit the new sample
+                        s.hit(time);
                     }
                 }
+                // For a repeat, continue playing the current token
                 GridToken::Repeat => {}
+                GridToken::Hit(s) => {
+                    self.now_playing = index;
+                    // hit the new sample
+                    s.hit(time);
+                }
                 _ => {
                     self.now_playing = index;
                 }
@@ -179,14 +187,14 @@ impl Grid {
             // }
         }
 
-        self.tokens[self.now_playing].get_sample(time)
+        self.tokens[self.now_playing].get_sample(time, sample_rate)
     }
 
-    fn calc_samples_per_token(&mut self) {
+    fn calc_samples_per_token(&mut self, sample_rate: u32) {
         let note_len = self.note_length.0 as f32 / self.note_length.1 as f32;
         let beat = self.time_sign.1 as f32;
-        // TODO: variable sample rate
-        let val = note_len * beat * 60.0 * 44100.0 / self.tempo;
+        let val = note_len * beat * 60.0 * (sample_rate as f32) / self.tempo;
+        // NOTE: this is the only place where samples_per_hit is set!
         self.samples_per_hit = Some(val as u32);
     }
 

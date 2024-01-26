@@ -8,7 +8,6 @@ use dasp_sample::Sample as Sm;
 pub struct SamplePlayer {
     pub sample: Arc<Sample>,
     start: u128,
-    current: u128,
     speed: f32,
 }
 
@@ -17,6 +16,7 @@ pub struct SamplePlayer {
 pub struct Sample {
     pub name: String,
     data: Vec<f32>,
+    sample_rate: u32,
 }
 
 #[derive(Debug)]
@@ -33,6 +33,7 @@ impl Sample {
         let mut samples = vec![];
 
         let spec = data.spec().channels;
+        let sample_rate = data.spec().sample_rate;
 
         for s in data.samples().step_by(spec as usize) {
             let s: i16 = s.unwrap();
@@ -43,6 +44,7 @@ impl Sample {
         Some(Self {
             name: name.to_string(),
             data: samples,
+            sample_rate,
         })
     }
 }
@@ -52,16 +54,18 @@ fn interpolate(a: f32, b: f32, t: f32) -> f32 {
 }
 
 impl SamplePlayer {
-    pub fn get_sample(&mut self, time: u128) -> f32 {
-        // HACK: this is a really hacky way to implement sampleplayback
-        //       should probably keep track of the starting time of current playback
-        if time > (self.current + 1) {
-            self.start = time;
+    pub fn get_sample(&mut self, time: u128, sample_rate: u32) -> f32 {
+        // NOTE: there may be better ways to interpolate than just linear interpolation
+
+        // index of the destination sample rate
+        let mut index = (time as i128 - self.start as i128) as f32 * self.speed;
+        // if the sample rate is different, we need to adjust the index
+        if sample_rate != self.sample.sample_rate {
+            index *= self.sample.sample_rate as f32 / sample_rate as f32;
         }
 
-        self.current = time;
-
-        let index = (time as i128 - self.start as i128) as f32 * self.speed;
+        // index at this point is a float, so we need to interpolate between two samples, which we
+        // will call low and high
         let index_low = index.floor() as usize;
         let t = index.fract();
 
@@ -80,15 +84,23 @@ impl SamplePlayer {
             None => 0.0,
         };
 
-        // WARN: just return interpolate output
+        // no need to interpolate if the target time falls on the grid
+        if t > 0.9999 {
+            return high;
+        }
+
         interpolate(low, high, t)
+    }
+
+    /// Hit this sample, i.e. reset the start time
+    pub fn hit(&mut self, time: u128) {
+        self.start = time;
     }
 
     pub fn new(sample: Arc<Sample>) -> Self {
         Self {
             sample,
             start: 0,
-            current: 0,
             speed: 0.8,
         }
     }

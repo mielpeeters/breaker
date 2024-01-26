@@ -47,12 +47,17 @@ fn main() {
         samples_dir: args.sample_dir,
     };
 
-    let (pipeline, source) = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config));
-    let shared_pipeline = Arc::new(Mutex::new(pipeline));
+    // create the pipeline and the audio output engine
+    let (mut pipeline, source) = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config));
     let (_stream, config) = audio_engine::start(source);
 
+    // notify the pipeline of the output config
+    pipeline.set_output_config(&config);
+
+    let shared_pipeline = Arc::new(Mutex::new(pipeline));
+
     log::info!("Pipeline was created successfully!");
-    log::info!("audio engine stream config: {:?}", config);
+    log::info!("audio engine stream config: {:#?}", config);
 
     // run the pipeline thread
     let shared_pipeline_thread = shared_pipeline.clone();
