@@ -10,7 +10,7 @@ use std::{
 
 use crate::{
     grid::Grid,
-    postproc::{Effect, FIRBuilder, Reverb, FIR},
+    postproc::{Effect, FIRBuilder, Reverb},
     sampler::{Sample, SampleSet},
     util::FromNode,
 };
@@ -62,8 +62,6 @@ fn rescale_mix(mix: &mut HashMap<String, f32>) {
     for (_name, value) in mix.iter_mut() {
         *value /= total;
     }
-
-    println!("rescaled mix: {:?}", mix);
 }
 
 impl Pipeline {
@@ -235,18 +233,18 @@ impl Pipeline {
         for effect in self.effects.iter_mut() {
             sample = match effect {
                 Effect::FIR(f) => f.process(sample),
-                Effect::Reverb(_r) => sample,
+                Effect::Reverb(r) => r.process(sample),
             }
         }
 
         let res = self.sink.send(sample);
-        // println!(
-        //     "pipeline, {}",
-        //     SystemTime::now()
-        //         .duration_since(UNIX_EPOCH)
-        //         .unwrap()
-        //         .as_nanos()
-        // );
+        log::trace!(
+            "pipeline, {}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
 
         res
     }
@@ -265,7 +263,7 @@ mod tests {
             .set_language(tree_sitter_breaker::language())
             .unwrap();
 
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         (source.to_string(), tree)
     }

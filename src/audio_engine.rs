@@ -1,3 +1,12 @@
+/*!
+* The audio engine module.
+*
+* This module is responsible for setting up the audio output,
+* and for sending the audio samples to the output device.
+*
+* The audio engine is a separate thread, which receives the audio samples.
+*/
+
 use std::{
     sync::mpsc::Receiver,
     time::{SystemTime, UNIX_EPOCH},
@@ -5,10 +14,10 @@ use std::{
 
 use cpal::{
     traits::{DeviceTrait, HostTrait},
-    Stream,
+    Stream, SupportedStreamConfig,
 };
 
-pub fn start(source: Receiver<f32>) -> Stream {
+pub fn start(source: Receiver<f32>) -> (Stream, SupportedStreamConfig) {
     let host = cpal::host_from_id(
         cpal::available_hosts()
             .into_iter()
@@ -31,13 +40,13 @@ pub fn start(source: Receiver<f32>) -> Stream {
                     println!("Some receiving error at the audio engine side");
                     continue;
                 };
-                // println!(
-                //     "audio_engine, {}",
-                //     SystemTime::now()
-                //         .duration_since(UNIX_EPOCH)
-                //         .unwrap()
-                //         .as_nanos()
-                // );
+                log::trace!(
+                    "audio_engine, {}",
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_nanos()
+                );
                 for ch in frame {
                     // TODO: load pipeline defined audio samples
                     *ch = sample;
@@ -48,5 +57,5 @@ pub fn start(source: Receiver<f32>) -> Stream {
         None,
     );
 
-    out_stream.unwrap()
+    (out_stream.unwrap(), config)
 }

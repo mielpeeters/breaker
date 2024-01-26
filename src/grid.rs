@@ -2,7 +2,7 @@
 * Grid module implements the grid sequencer grid parsing
 */
 
-use std::{collections::HashMap, fmt::Display, time::Instant};
+use std::{collections::HashMap, fmt::Display};
 
 use rand::Rng;
 
@@ -240,7 +240,6 @@ impl Grid {
             }
         });
 
-        let start = Instant::now();
         // set the todos to the mapped values
         self.tokens.iter_mut().for_each(|token| {
             if let GridToken::Todo(key) = token {
@@ -250,7 +249,6 @@ impl Grid {
                 *token = value.clone();
             }
         });
-        // println!("Cloning map values took {:?}", start.elapsed());
     }
 
     pub fn set_tempo(&mut self, tempo: f32) {
@@ -284,7 +282,7 @@ mod tests {
             .set_language(tree_sitter_breaker::language())
             .unwrap();
 
-        let tree = parser.parse(&source, None).unwrap();
+        let tree = parser.parse(source, None).unwrap();
 
         (source.to_string(), tree)
     }

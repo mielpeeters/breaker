@@ -495,7 +495,7 @@ impl AddAssign<Acc> for PitchClass {
         // HACK: this is a bit of a hack, but it works
         //       i'd rather not have to clone self here...
         let pitch: PitchClass =
-            num::FromPrimitive::from_i32((*self as i32 + rhs as i32) % 12).unwrap();
+            num::FromPrimitive::from_i32((*self as i32 + rhs as i32).rem_euclid(12)).unwrap();
         *self = pitch;
     }
 }

@@ -26,6 +26,9 @@ struct Args {
 }
 
 fn main() {
+    // set up logging
+    env_logger::init();
+
     let args = Args::parse();
     let mut parser = Parser::new();
     parser
@@ -46,7 +49,10 @@ fn main() {
 
     let (pipeline, source) = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config));
     let shared_pipeline = Arc::new(Mutex::new(pipeline));
-    let _eng = audio_engine::start(source);
+    let (_stream, config) = audio_engine::start(source);
+
+    log::info!("Pipeline was created successfully!");
+    log::info!("audio engine stream config: {:?}", config);
 
     // run the pipeline thread
     let shared_pipeline_thread = shared_pipeline.clone();

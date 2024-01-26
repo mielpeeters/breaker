@@ -1,8 +1,6 @@
 /*!
 * Implement post processing effects like filters, distortion, chorus, reverberation, delay, etc.
 */
-include!(concat!(env!("OUT_DIR"), "/data/reverb.rs"));
-
 /// Defines the interface for a post processing effect.
 pub enum Effect {
     FIR(FIR),
@@ -22,8 +20,9 @@ pub struct FIRBuilder {
     coeffs: Vec<f32>,
 }
 
+#[allow(unused)]
 pub struct Reverb {
-    state: Vec<f32>,
+    state: f32,
 }
 
 impl FIRBuilder {
@@ -78,18 +77,17 @@ impl FIR {
 
 impl Reverb {
     pub fn new() -> Self {
-        Self {
-            state: vec![0.0; REVERB_SIZE],
-        }
+        Self { state: 0.0 }
     }
 
     pub fn process(&mut self, input: f32) -> f32 {
-        let mut output = 0.0;
-        self.state.insert(0, input);
-        self.state.pop();
-        for i in 0..REVERB_SIZE {
-            output += REVERB_MASK[i] * self.state[i];
-        }
-        output
+        // TODO: implement a proper reverb algorithm
+        input
+    }
+}
+
+impl Default for Reverb {
+    fn default() -> Self {
+        Self::new()
     }
 }
