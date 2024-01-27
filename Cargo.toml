@@ -19,6 +19,7 @@ keywords = [
     "interpreter",
 ]
 categories = ["multimedia::audio", "compilers"]
+exclude = ["data/"]
 
 [build-dependencies]
 cc = "*"
