@@ -14,8 +14,8 @@
 </h4>
 
 <p align="center">
-    <img alt="Crates.io Version" src="https://img.shields.io/crates/v/breakers">
-    <img alt="docs.rs" src="https://img.shields.io/docsrs/breakers">
+    <a href="https://crates.io/crates/breakers"><img alt="Crates.io Version" src="https://img.shields.io/crates/v/breakers"></a>
+    <a href="https://docs.rs/breakers/latest/breakers/"><img alt="docs.rs" src="https://img.shields.io/docsrs/breakers"></a>
 </p>
 
 <p align="center">

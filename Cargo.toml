@@ -1,6 +1,6 @@
 [package]
 name = "breakers"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "Interpreter for the Breaker livecoding language"
 authors = ["Miel Peeters"]
