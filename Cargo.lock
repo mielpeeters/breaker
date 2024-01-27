@@ -1099,7 +1099,7 @@ dependencies = [
 
 [[package]]
 name = "tree-sitter-breaker"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "cc",
  "tree-sitter",
