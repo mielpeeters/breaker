@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    error::Error,
     fs,
     sync::{
         mpsc::{self, Receiver, SendError, SyncSender},
@@ -36,8 +37,12 @@ pub struct PipelineConfig {
 }
 
 fn get_samples(config: &PipelineConfig) -> HashMap<String, Arc<Sample>> {
-    let paths = fs::read_dir(config.samples_dir.clone()).unwrap();
     let mut samples = HashMap::new();
+
+    let Ok(paths) = fs::read_dir(config.samples_dir.clone()) else {
+        log::info!("No samples directory found, skipping sample loading");
+        return samples;
+    };
 
     for path in paths {
         let path = path.unwrap();
@@ -69,7 +74,7 @@ impl Pipeline {
         tree: &tree_sitter::Tree,
         source: &str,
         config: Option<&PipelineConfig>,
-    ) -> (Self, Receiver<f32>) {
+    ) -> Result<(Self, Receiver<f32>), Box<dyn Error>> {
         let mut playables: HashMap<String, Playable> = HashMap::new();
 
         // NOTE: should probably only load those samples that haven't been loaded yet...
@@ -195,7 +200,7 @@ impl Pipeline {
         let rev = Reverb::new();
         effects.push(Effect::Reverb(rev));
 
-        (
+        Ok((
             Self {
                 playables,
                 mix,
@@ -205,7 +210,7 @@ impl Pipeline {
                 sample_rate: 44100,
             },
             rx,
-        )
+        ))
     }
 
     pub fn set_output_config(&mut self, config: &cpal::SupportedStreamConfig) {
@@ -277,7 +282,10 @@ mod tests {
     fn named_grid() {
         let (source, tree) = get_test_tree();
 
-        let playables = Pipeline::from_tree(&tree, &source, None).0.playables;
+        let playables = Pipeline::from_tree(&tree, &source, None)
+            .unwrap()
+            .0
+            .playables;
 
         assert!(
             playables.len() == 1,

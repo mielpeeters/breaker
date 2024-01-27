@@ -35,6 +35,7 @@ fn main() {
         .set_language(tree_sitter_breaker::language())
         .unwrap();
 
+    log::info!("Starting up from file: {}", args.input_file);
     let input_file = PathBuf::try_from(args.input_file).unwrap();
 
     // read file
@@ -43,12 +44,18 @@ fn main() {
     // parse
     let mut tree = parser.parse(&source_code, None).unwrap();
 
+    log::info!("Sampling directory: {}", args.sample_dir);
     let pipeline_config = PipelineConfig {
         samples_dir: args.sample_dir,
     };
 
     // create the pipeline and the audio output engine
-    let (mut pipeline, source) = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config));
+    let Ok((mut pipeline, source)) =
+        Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config))
+    else {
+        log::warn!("Pipeline creation failed, exiting");
+        return;
+    };
     let (_stream, config) = audio_engine::start(source);
 
     // notify the pipeline of the output config
@@ -91,20 +98,22 @@ fn main() {
                     .iter()
                     .any(|path| path.file_name() == input_file.file_name())
                 {
-                    // println!("Reparse the tree!");
                     let source_code = std::fs::read_to_string(&input_file).unwrap();
                     tree = parser.parse(&source_code, None).unwrap();
-                    let new_p = Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config)).0;
+                    let Ok((new_p, _)) =
+                        Pipeline::from_tree(&tree, &source_code, Some(&pipeline_config))
+                    else {
+                        log::warn!("Pipeline creation failed");
+                        continue;
+                    };
                     {
                         let mut p = shared_pipeline.lock().unwrap();
                         p.update(new_p);
-                        // println!("Tree was updated!");
+                        log::info!("Tree was updated!");
                     }
-                    // TODO: update the audio pipeline in the <Arc<Mutex<Pipeline>> such that the
-                    //       audio engine will be updated
                 }
             }
-            Err(err) => println!("Error: {}", err),
+            Err(err) => log::error!("Error: {}", err),
         }
     }
 }

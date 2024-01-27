@@ -42,7 +42,11 @@ fn test_freqs(freqs: Vec<f64>, expected: &[f64]) {
 fn chord_parse_and_freqs() {
     let (source, tree) = get_test_tree();
 
-    let playables = Pipeline::from_tree(&tree, &source, None).0.playables;
+    let Ok((pipeline, _)) = Pipeline::from_tree(&tree, &source, None) else {
+        panic!("Pipeline creation failed");
+    };
+
+    let playables = pipeline.playables;
 
     let grid = playables
         .iter()
