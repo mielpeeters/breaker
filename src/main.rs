@@ -4,7 +4,7 @@ use std::{
     thread,
 };
 
-use breaker::{
+use breakers::{
     audio_engine,
     pipeline::{Pipeline, PipelineConfig},
 };

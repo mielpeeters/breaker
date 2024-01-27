@@ -1,4 +1,4 @@
-use breaker::{
+use breakers::{
     grid::GridToken,
     pipeline::{Pipeline, Playable},
 };
