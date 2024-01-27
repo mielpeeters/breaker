@@ -12,7 +12,7 @@ categories = ["multimedia::audio", "compilers"]
 exclude = ["data/"]
 
 [build-dependencies]
-cc = "*"
+cc = "1.0.83"
 hound = "3.5.1"
 
 [dependencies]
