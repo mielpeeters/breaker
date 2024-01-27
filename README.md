@@ -14,7 +14,7 @@
 </h4>
 
 <p align="center">
-    <img alt="Crates.io MSRV" src="https://img.shields.io/crates/msrv/https%3A%2F%2Fcrates.io%2Fcrates%2Fbreakers">
+    <img alt="Crates.io MSRV" src="https://img.shields.io/crates/msrv/breakers">
 </p>
 
 <p align="center">
