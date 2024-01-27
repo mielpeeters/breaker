@@ -15,6 +15,7 @@
 
 <p align="center">
     <img alt="Crates.io Version" src="https://img.shields.io/crates/v/breakers">
+    <img alt="docs.rs" src="https://img.shields.io/docsrs/breakers">
 </p>
 
 <p align="center">
