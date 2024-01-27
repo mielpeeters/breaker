@@ -1,10 +1,10 @@
 [package]
 name = "breakers"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Interpreter for the Breaker livecoding language"
 authors = ["Miel Peeters"]
-license-file = "COPYING"
+license = "GPL-3.0-or-later"
 repository = "https://github.com/mielpeeters/breaker"
 readme = "README.md"
 keywords = ["livecoding", "music", "audio", "synth", "interpreter"]
