@@ -25,8 +25,9 @@
     <a href="#license">License</a>
 </p>
 
-![screenshot](https://github.com/mielpeeters/breaker/assets/72082402/e179248c-c9f0-4d9e-90ac-7cb46d190eb9)
-
+<h1 align="center">
+<img src="https://github.com/mielpeeters/breaker/assets/72082402/e179248c-c9f0-4d9e-90ac-7cb46d190eb9" alt="screenshot">
+</h1>
 ## Key Features
 
 - grids: configurable sequence of tokens which loop
