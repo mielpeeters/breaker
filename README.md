@@ -25,7 +25,7 @@
     <a href="#license">License</a>
 </p>
 
-![screenshot](https://github.com/mielpeeters/vault/assets/72082402/14615bb6-3946-4d27-ba8a-8d5822fb43bc)
+![screenshot](https://github.com/mielpeeters/breaker/assets/72082402/e179248c-c9f0-4d9e-90ac-7cb46d190eb9)
 
 ## Key Features
 
