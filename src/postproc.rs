@@ -1,11 +1,18 @@
 /*!
 * Implement post processing effects like filters, distortion, chorus, reverberation, delay, etc.
 */
+
+use std::f32::consts::PI;
 /// Defines the interface for a post processing effect.
 pub enum Effect {
     FIR(FIR),
     Reverb(Reverb),
+    Gain(Gain),
+    Compressor(Compressor),
 }
+
+/// Arbitrary maximum length for FIR filters.
+const MAX_FIR_LENGTH: usize = 100;
 
 /// A simple low pass FIR filter.
 pub struct FIR {
@@ -25,6 +32,22 @@ pub struct Reverb {
     state: f32,
 }
 
+pub struct Gain {
+    amount: f32,
+}
+
+pub struct Compressor {
+    ratio: f32,
+    threshold: f32,
+    energy: AudioEnergy,
+    current: f32,
+}
+
+pub struct AudioEnergy {
+    state: Vec<f32>,
+    energy: f32,
+}
+
 impl FIRBuilder {
     pub fn new() -> Self {
         Self { coeffs: vec![] }
@@ -32,15 +55,40 @@ impl FIRBuilder {
 
     pub fn low_pass(mut self, cutoff: f32, sample_rate: f32) -> Self {
         let n = 2.0 * sample_rate / cutoff;
-        let n = n as usize;
+        let mut n = n as usize;
+        n = n.min(MAX_FIR_LENGTH);
         let mut coeffs = vec![0.0; n];
-        // TODO: check if everything time-wise (sample distance etc) is correct here
-        // TODO: apply hamming window
-        //       -> find out how they relate to the cutoff and sample frequency
         for (i, item) in coeffs.iter_mut().enumerate() {
-            let x = (n - i) as f32 * cutoff / sample_rate;
-            *item = x.sin() / (n as f32 * x);
+            let x = i as f32 * cutoff / sample_rate;
+            if x == 0.0 {
+                *item = 1.0;
+                continue;
+            }
+            *item = x.sin() / (x);
+            // Hann window
+            *item *= (PI * i as f32 / n as f32).sin().powi(2);
         }
+
+        self.coeffs = coeffs;
+        self
+    }
+
+    pub fn high_pass(mut self, cutoff: f32, sample_rate: f32) -> Self {
+        let n = 2.0 * sample_rate / cutoff;
+        let mut n = n as usize;
+        n = n.min(MAX_FIR_LENGTH);
+        let mut coeffs = vec![0.0; n];
+        for (i, item) in coeffs.iter_mut().enumerate() {
+            let x = i as f32 * cutoff / sample_rate;
+            if x == 0.0 {
+                *item = 1.0;
+                continue;
+            }
+            *item = (-1.0_f32).powi(i as i32) * x.sin() / x;
+            // Hann window
+            // *item *= (PI * i as f32 / n as f32).sin().powi(2);
+        }
+
         self.coeffs = coeffs;
         self
     }
@@ -89,5 +137,55 @@ impl Reverb {
 impl Default for Reverb {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Gain {
+    pub fn new(amount: f32) -> Self {
+        Self { amount }
+    }
+
+    pub fn process(&mut self, input: f32) -> f32 {
+        input * self.amount
+    }
+}
+
+impl AudioEnergy {
+    fn new(len: usize) -> Self {
+        // maybe change length to be a parameter
+        Self {
+            state: vec![0.0; len],
+            energy: 0.0,
+        }
+    }
+
+    #[allow(unused)]
+    fn add(&mut self, input: f32) {
+        self.state.insert(0, input);
+        self.energy += input.powi(2);
+        let out = self.state.pop();
+        self.energy -= out.unwrap().powi(2);
+    }
+
+    /// Returns decibels of energy in the state.
+    fn add_and_get(&mut self, input: f32) -> f32 {
+        self.add(input);
+        10.0 * (100.0 * self.energy / self.state.len() as f32).log10()
+    }
+}
+
+impl Compressor {
+    pub fn new(ratio: f32, threshold: f32, len: usize) -> Self {
+        Self {
+            ratio,
+            threshold,
+            energy: AudioEnergy::new(len),
+            current: 1.0,
+        }
+    }
+
+    pub fn process(&mut self, input: f32) -> f32 {
+        // TODO: implement a proper compressor algorithm
+        input
     }
 }

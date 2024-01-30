@@ -9,7 +9,7 @@ repository = "https://github.com/mielpeeters/breaker"
 readme = "README.md"
 keywords = ["livecoding", "music", "audio", "synth", "interpreter"]
 categories = ["multimedia::audio", "compilers"]
-exclude = ["data/"]
+exclude = ["data/", "testdata/samples/"]
 
 [build-dependencies]
 cc = "1.0.83"

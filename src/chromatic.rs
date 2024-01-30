@@ -177,7 +177,7 @@ impl Note {
     pub fn get_sample(&self, time: u128, sample_rate: u32) -> f32 {
         let freq = self.to_freq();
 
-        let n_overtones = 20;
+        let n_overtones = 10;
         let mut sample: f32 = 0.0;
         for i in 0..n_overtones {
             let freq_fact = 1.0 + 2.0 * i as f64;
@@ -193,6 +193,16 @@ impl Note {
         }
 
         sample /= n_overtones as f32;
+
+        // just for fun, try a perfect square wave
+        sample *= 0.0;
+
+        // square wave sample:
+        if time as f64 / sample_rate as f64 * freq % 1.0 > 0.5 {
+            sample = 1.0;
+        } else {
+            sample = 0.0;
+        }
 
         sample
     }

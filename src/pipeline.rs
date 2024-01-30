@@ -11,7 +11,7 @@ use std::{
 
 use crate::{
     grid::Grid,
-    postproc::{Effect, FIRBuilder, Reverb},
+    postproc::{Effect, FIRBuilder, Gain},
     sampler::{Sample, SampleSet},
     util::FromNode,
 };
@@ -25,11 +25,13 @@ pub enum Playable {
 
 pub struct Pipeline {
     pub playables: HashMap<String, Playable>,
+    effects: HashMap<String, Vec<Effect>>,
     pub mix: HashMap<String, f32>,
     pub time: u128,
+    bar_length: u128,
     sample_rate: u32,
     sink: SyncSender<f32>,
-    effects: Vec<Effect>,
+    next: Option<Box<Pipeline>>,
 }
 
 pub struct PipelineConfig {
@@ -69,13 +71,23 @@ fn rescale_mix(mix: &mut HashMap<String, f32>) {
     }
 }
 
+fn samples_per_bar(tempo: f32, time_signature: (u32, u32), sample_rate: u32) -> u32 {
+    60 * sample_rate * time_signature.0 / tempo as u32
+}
+
 impl Pipeline {
     pub fn from_tree(
         tree: &tree_sitter::Tree,
         source: &str,
         config: Option<&PipelineConfig>,
     ) -> Result<(Self, Receiver<f32>), Box<dyn Error>> {
+        // initialize playables and effects
         let mut playables: HashMap<String, Playable> = HashMap::new();
+        let mut effects: HashMap<String, Vec<Effect>> = HashMap::new();
+
+        let sample_rate = 48000;
+
+        let mut bar_length = samples_per_bar(120.0, (4, 4), sample_rate);
 
         // NOTE: should probably only load those samples that haven't been loaded yet...
         //       because this function runs every time the declaration file changes
@@ -132,6 +144,12 @@ impl Pipeline {
                 let note = node.child_by_field_name("note").unwrap();
                 let note = note.utf8_text(source.as_bytes()).unwrap();
 
+                bar_length = samples_per_bar(
+                    bpm.parse().unwrap(),
+                    (count.parse().unwrap(), note.parse().unwrap()),
+                    sample_rate,
+                );
+
                 // set this information in all grids
                 playables
                     .iter_mut()
@@ -177,15 +195,50 @@ impl Pipeline {
 
                 let _playable = playables.get_mut(target).unwrap();
 
-                let property = node.child_by_field_name("property").unwrap();
-                let _property = property.utf8_text(source.as_bytes()).unwrap();
+                let property = node.child_by_field_name("prop").unwrap();
+                let property = property.utf8_text(source.as_bytes()).unwrap();
 
                 let value = node.child_by_field_name("value").unwrap();
-                let _value = value.utf8_text(source.as_bytes()).unwrap();
+                let value = value.utf8_text(source.as_bytes()).unwrap();
 
-                // TODO: implement properties for playables
-                //       -> all properties should be playable-independent
-                //       -> more like post-processing steps than properties!
+                match property {
+                    "lp_cutoff" => {
+                        let value = value.parse().unwrap();
+                        // TODO: implement variable sample rate (set_output_config should propagate to all effects)
+                        let fir = FIRBuilder::new()
+                            .low_pass(value, sample_rate as f32)
+                            .build();
+
+                        // add the effect to the list of effects (or create new list if none exists)
+                        effects
+                            .entry(target.to_string())
+                            .or_default()
+                            .push(Effect::FIR(fir));
+                    }
+                    "hp_cutoff" => {
+                        let value = value.parse().unwrap();
+                        let fir = FIRBuilder::new()
+                            .high_pass(value, sample_rate as f32)
+                            .build();
+
+                        // add the effect to the list of effects (or create new list if none exists)
+                        effects
+                            .entry(target.to_string())
+                            .or_default()
+                            .push(Effect::FIR(fir));
+                    }
+                    // other effects will come here
+                    "gain" => {
+                        let value = value.parse().unwrap();
+                        let gain = Gain::new(value);
+
+                        effects
+                            .entry(target.to_string())
+                            .or_default()
+                            .push(Effect::Gain(gain));
+                    }
+                    _ => (),
+                }
             }
         }
 
@@ -193,21 +246,16 @@ impl Pipeline {
 
         let (s_tx, rx) = mpsc::sync_channel(2048);
 
-        let mut effects: Vec<Effect> = vec![];
-        // fir lowpass filter with cutoff at 2000 Hz
-        let fir = FIRBuilder::new().low_pass(2800.0, 44100.0).build();
-        effects.push(Effect::FIR(fir));
-        let rev = Reverb::new();
-        effects.push(Effect::Reverb(rev));
-
         Ok((
             Self {
                 playables,
                 mix,
                 time: 0,
+                bar_length: bar_length as u128,
                 sink: s_tx,
                 effects,
-                sample_rate: 44100,
+                sample_rate,
+                next: None,
             },
             rx,
         ))
@@ -218,12 +266,25 @@ impl Pipeline {
     }
 
     pub fn update(&mut self, other: Pipeline) {
-        self.playables = other.playables;
-        self.mix = other.mix;
+        self.next = Some(Box::new(other));
+    }
+
+    fn set_to_new(&mut self) {
+        if let Some(next) = self.next.take() {
+            self.time = 0;
+            self.playables = next.playables;
+            self.effects = next.effects;
+            self.mix = next.mix;
+            self.bar_length = next.bar_length;
+        }
     }
 
     pub fn send_sample(&mut self) -> Result<(), SendError<f32>> {
-        // TODO: implement post-processing steps per-playable based on properties
+        // check if we need to update the pipeline
+        if self.time % (4 * self.bar_length) == 0 {
+            self.set_to_new();
+        }
+
         let mut sample: f32 = 0.0;
         for playable in self.playables.iter_mut() {
             let dry = match playable.1 {
@@ -232,20 +293,30 @@ impl Pipeline {
                     s * self.mix[playable.0]
                 }
             };
-            // NOTE: here, the post-processing pipeline should be traversed
-            //       -> keep one per playable!
-            //       -> maybe different, when multiple playables are mixed into one effect?
-            sample += dry
+
+            let wet = {
+                let mut output = dry;
+                match self.effects.get_mut(playable.0) {
+                    None => output,
+                    Some(effects) => {
+                        for effect in effects {
+                            output = match effect {
+                                Effect::FIR(fir) => fir.process(output),
+                                Effect::Gain(gain) => gain.process(output),
+                                // not yet implemented effects
+                                _ => output,
+                            }
+                        }
+
+                        output
+                    }
+                }
+            };
+
+            sample += wet;
         }
 
         self.time += 1;
-
-        for effect in self.effects.iter_mut() {
-            sample = match effect {
-                Effect::FIR(f) => f.process(sample),
-                Effect::Reverb(r) => r.process(sample),
-            }
-        }
 
         let res = self.sink.send(sample);
         log::trace!(

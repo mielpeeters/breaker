@@ -1,34 +1,18 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 tempo 120 4/4
 
 grid beat {
 	1_2_3_2_
 	1_2_3_2_
-}
-
-map beat {
+} map beat {
 	1: kick,
-	2: hihat7,
+	2: hihat8,
 	3: snare,
-}
+} note beat 1/16
 
-note beat 1/16
+set beat gain = 10.1
 
 grid andromeda {
 	[2]d_[2]d_
@@ -42,37 +26,7 @@ grid andromeda {
 	[1]a [1]t [2]c [1]a
 } note andromeda 1/8
 
-mix andromeda 4.0
-
-// grid beat2 {
-// 	___1	
-// 	_1_2	
-// }
-
-// map beat2 {
-// 	1: kick,
-// 	2: clap,
-// }
-
-// grid beat3 {
-// 	1_1_
-// }
-
-// map beat3 {
-// 	1: piano,
-// }
-
-// grid chords {
-// 	[3]Cm7/C&&&&&&&
-// 	[2]Fm7/F&&&&&&&
-// }
-// 	// [2]Ab/Ab&&&&&&&
-// 	// [2]Fm7/F&&&&&&&
-
-// grid chords2 {
-// 	CmM9&_Cm7&_Cm_
-// 	Fm7M9&_Fm7&_Fm_
-// 	Ab&_Ab&_Ab_
-// 	Fm9M11&_Fm7&_Fm_
-// }
+set andromeda gain = 0.08
+set andromeda lp_cutoff = 1200.0
+mix andromeda 2.0
 

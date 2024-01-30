@@ -1,4 +1,7 @@
 /target
 *.csv
 /testdata/samples/*
+!/testdata/samples/kick.wav
+!/testdata/samples/snare.wav
+!/testdata/samples/hihat7.wav
 *.py
