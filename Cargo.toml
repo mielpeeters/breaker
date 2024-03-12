@@ -16,8 +16,8 @@ cc = "1.0.83"
 hound = "3.5.1"
 
 [dependencies]
-tree-sitter-breaker = { version = "0.2" }
-tree-sitter = "0.20"
+tree-sitter-breaker = { version = "0.2", path = "../tree-sitter-breaker" }
+tree-sitter = "0.22.1"
 clap = { version = "4.4", features = ["derive"] }
 cpal = { version = "0.15.2", features = ["jack"] }
 num = "0.4"
