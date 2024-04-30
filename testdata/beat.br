@@ -1,6 +1,4 @@
 
-
-
 tempo 120 4/4
 
 grid beat {
@@ -11,8 +9,6 @@ grid beat {
 	2: hihat8,
 	3: snare,
 } note beat 1/16
-
-set beat gain = 10.1
 
 grid andromeda {
 	[2]d_[2]d_
@@ -29,4 +25,21 @@ grid andromeda {
 set andromeda gain = 0.08
 set andromeda lp_cutoff = 1200.0
 mix andromeda 2.0
+set beat gain = 1.1
+mix beat 1.0
+set beat lp_cutoff = 5000.0
 
+grid andro {
+	[3]Dm _
+	[3]Dm _
+	[3]Dm _
+	[3]Dm _
+	[2]Am _
+	[2]Am _
+	[2]Am _
+	[2]Am _
+} note andro 1/4
+
+set andro gain = 0.1
+set andro lp_cutoff = 1200.0
+mix andro 0.2
