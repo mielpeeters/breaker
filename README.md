@@ -39,10 +39,6 @@
 - synths: currently, only one default synth sound (filtered square) is supported
     - in the future, configurable synths will be added
 
-## Roadmap
-
-- 
-
 ## How To Use
 
 Here is an example breaker file, `my_first_beat.br`: 
